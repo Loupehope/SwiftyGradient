@@ -10,7 +10,7 @@ import UIKit
 /// A CALayer subclass that renders a mesh gradient with bezier points
 final class MeshGradientLayer: CALayer {
     /// Array of mesh points that define the gradient
-    var meshPoints: [MeshPoint] = [] {
+    var meshPoints: [UIColor] = [] {
         didSet {
             setNeedsDisplay()
         }

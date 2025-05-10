@@ -17,7 +17,7 @@ final class MeshGradientColorCalculator {
     ///   - rows: Number of rows in the mesh
     ///   - columns: Number of columns in the mesh
     /// - Returns: The interpolated UIColor at the specified point
-    func color(at point: CGPoint, meshPoints: [MeshPoint], rows: Int, columns: Int) -> UIColor {
+    func color(at point: CGPoint, meshPoints: [UIColor], rows: Int, columns: Int) -> UIColor {
         // Validate the mesh configuration
         guard isValidMesh(rows: rows, columns: columns, pointsCount: meshPoints.count) else {
             return UIColor.red
@@ -49,7 +49,7 @@ final class MeshGradientColorCalculator {
     /// Validates that the mesh configuration meets the requirements
     private func isValidMesh(rows: Int, columns: Int, pointsCount: Int) -> Bool {
         guard rows >= 2 && columns >= 2 && pointsCount == rows * columns else {
-            print("Invalid mesh configuration: requires at least 2x2 grid and rows*columns must equal meshPoints.count")
+            print("Invalid mesh configuration: requires at least 2x2 grid and rows*columns must equal meshPoints.count!")
             return false
         }
         return true
@@ -98,7 +98,7 @@ final class MeshGradientColorCalculator {
     private func interpolateColor(gridCell: (x: Int, y: Int),
                                  xWeights: [Float],
                                  yWeights: [Float],
-                                 meshPoints: [MeshPoint],
+                                 meshPoints: [UIColor],
                                  rows: Int,
                                  columns: Int) -> UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
@@ -117,7 +117,7 @@ final class MeshGradientColorCalculator {
                 
                 // Get the mesh point color
                 let index = yIdx * columns + xIdx
-                let color = meshPoints[index].color
+                let color = meshPoints[index]
                 
                 // Extract color components
                 color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)

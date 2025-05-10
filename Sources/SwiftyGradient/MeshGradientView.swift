@@ -19,11 +19,11 @@ public class MeshGradientView: UIView {
     public init?(
         width: Int,
         height: Int,
-        bezierPoints: [CGPoint],
         colors: [UIColor],
         colorSpace: CGColorSpace = CGColorSpaceCreateDeviceRGB()
     ) {
-        guard (width * height) == bezierPoints.count, (width * height) == colors.count else {
+        guard (width * height) == colors.count else {
+            assertionFailure("Expected to see colors count equal to `width * height`!")
             return nil
         }
 
@@ -34,7 +34,7 @@ public class MeshGradientView: UIView {
         meshGradientLayer?.meshColorSpace = colorSpace
         meshGradientLayer?.meshWidth = width
         meshGradientLayer?.meshHeight = height
-        meshGradientLayer?.meshPoints = zip(colors, bezierPoints).map { MeshPoint(color: $0, position: $1) }
+        meshGradientLayer?.meshPoints = colors
     }
 
     @available(*, unavailable)
