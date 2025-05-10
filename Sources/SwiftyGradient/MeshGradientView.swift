@@ -23,7 +23,7 @@ public class MeshGradientView: UIView {
         colors: [UIColor],
         colorSpace: CGColorSpace = CGColorSpaceCreateDeviceRGB()
     ) {
-        guard width == height, (width * height) == bezierPoints.count, (width * height) == colors.count else {
+        guard (width * height) == bezierPoints.count, (width * height) == colors.count else {
             return nil
         }
 

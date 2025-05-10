@@ -134,7 +134,7 @@ final class MeshGradientLayer: CALayer {
                 let position = CGPoint(x: normalizedX, y: normalizedY)
 
                 // Get the color for this position
-                let color = colorCalculator.color(at: position, meshPoints: meshPoints, rows: meshWidth, columns: meshHeight)
+                let color = colorCalculator.color(at: position, meshPoints: meshPoints, rows: meshHeight, columns: meshWidth)
 
                 // Fill the cell with the calculated color
                 ctx.setFillColor(color.cgColor)
