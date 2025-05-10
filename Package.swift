@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "SwiftyGradient",
+    platforms: [.iOS(.v14)],
     products: [
         .library(name: "SwiftyGradient", targets: ["SwiftyGradient"]),
     ],

@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import CoreImage.CIFilterBuiltins
 
 /// A CALayer subclass that renders a mesh gradient with bezier points
 final class MeshGradientLayer: CALayer {
@@ -18,7 +19,7 @@ final class MeshGradientLayer: CALayer {
 
     /// The quality of the gradient render (higher = smoother but more CPU intensive)
     /// Default value provides good balance between quality and performance
-    var meshRenderQuality: CGFloat = 0.5 {
+    var meshRenderQuality: CGFloat = 0.2 {
         didSet {
             setNeedsDisplay()
         }
@@ -42,7 +43,6 @@ final class MeshGradientLayer: CALayer {
         }
     }
 
-    private var cachedImage: CGImage?
     private let colorCalculator = MeshGradientColorCalculator()
 
     // Enable content rendering
@@ -98,12 +98,32 @@ final class MeshGradientLayer: CALayer {
         renderMeshGradient(in: bitmapContext, size: bounds.size)
 
         guard let image = bitmapContext.makeImage() else { return }
+        
+        let context: CIContext
+        
+        if let metalDevice = MTLCreateSystemDefaultDevice() {
+            context = CIContext(mtlDevice: metalDevice)
+        } else {
+            context = CIContext()
+        }
 
-        _ = CIContext(cgContext: bitmapContext)
-
+        let ciImage = CIImage(cgImage: image)
+        let blurFilter = CIFilter.gaussianBlur()
+        blurFilter.inputImage = ciImage.clampedToExtent()
+        blurFilter.radius = 30
+        
+        let resultImage: CGImage
+        
+        if let ciImageResult = blurFilter.outputImage,
+           let cgImageBlured = context.createCGImage(ciImageResult, from: ciImage.extent) {
+            resultImage = cgImageBlured
+        } else {
+            resultImage = image
+        }
+        
         // Draw image
         ctx.saveGState()
-        ctx.draw(image, in: bounds)
+        ctx.draw(resultImage, in: bounds)
         ctx.restoreGState()
     }
 

@@ -9,7 +9,6 @@ import UIKit
 
 /// A class that handles mesh gradient color calculations using bicubic interpolation
 final class MeshGradientColorCalculator {
-    
     /// Calculates a color at a specified point using bicubic interpolation over a mesh of points
     /// - Parameters:
     ///   - point: The query position in normalized [0…1] coordinates
@@ -18,11 +17,6 @@ final class MeshGradientColorCalculator {
     ///   - columns: Number of columns in the mesh
     /// - Returns: The interpolated UIColor at the specified point
     func color(at point: CGPoint, meshPoints: [UIColor], rows: Int, columns: Int) -> UIColor {
-        // Validate the mesh configuration
-        guard isValidMesh(rows: rows, columns: columns, pointsCount: meshPoints.count) else {
-            return UIColor.red
-        }
-        
         // Ensure the point is within valid range [0,1]
         let normalizedPoint = normalizePoint(point)
         
@@ -45,15 +39,6 @@ final class MeshGradientColorCalculator {
     }
     
     // MARK: - Private Helper Methods
-    
-    /// Validates that the mesh configuration meets the requirements
-    private func isValidMesh(rows: Int, columns: Int, pointsCount: Int) -> Bool {
-        guard rows >= 2 && columns >= 2 && pointsCount == rows * columns else {
-            print("Invalid mesh configuration: requires at least 2x2 grid and rows*columns must equal meshPoints.count!")
-            return false
-        }
-        return true
-    }
     
     /// Ensures the point is clamped to the valid range [0,1]
     private func normalizePoint(_ point: CGPoint) -> CGPoint {
