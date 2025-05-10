@@ -7,11 +7,7 @@
 ### Пример использования
 
 ```swift
-let meshGradientView = MeshGradientView(width: 3, height: 3, bezierPoints: [
-    .init(x: 0, y: 0), .init(x: 0.5, y: 0), .init(x: 1, y: 0),
-    .init(x: 0, y: 0.5), .init(x: 0.5, y: 0.5), .init(x: 1, y: 0.5),
-    .init(x: 0, y: 1), .init(x: 0.5, y: 1), .init(x: 1, y: 1)
-], colors: [
+let meshGradientView = MeshGradientView(width: 3, height: 3, colors: [
     .systemRed, .systemPurple, .systemIndigo,
     .systemOrange, .white, .systemBlue,
     .systemYellow, .systemGreen, .systemMint
@@ -19,10 +15,7 @@ let meshGradientView = MeshGradientView(width: 3, height: 3, bezierPoints: [
 
 // ----
 
-let meshGradientView2 = MeshGradientView(width: 2, height: 2, bezierPoints: [
-    .init(x: 0, y: 0), .init(x: 1, y: 0),
-    .init(x: 0, y: 1), .init(x: 1, y: 1)
-], colors: [
+let meshGradientView2 = MeshGradientView(width: 2, height: 2, colors: [
     .systemIndigo, .systemCyan,
     .systemPurple, .systemPink
 ])
