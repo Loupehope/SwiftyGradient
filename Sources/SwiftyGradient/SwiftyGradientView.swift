@@ -13,12 +13,21 @@ public class SwiftyGradientView: UIView {
     ) {
         if let metalDevice {
             metalView = MTKView(frame: .zero, device: metalDevice)
-            metalManager = SwiftyMetalManager(colorPixelFormat: metalView.colorPixelFormat, metalDevice: metalDevice)
         } else {
             assertionFailure("Can't create command queue from metal device")
             metalView = MTKView(frame: .zero, device: nil)
-            metalManager = SwiftyMetalManager(colorPixelFormat: metalView.colorPixelFormat, metalDevice: nil)
         }
+        
+        metalView.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+        metalView.autoResizeDrawable = false
+        metalView.drawableSize = drawableSize
+        metalView.isPaused = true
+        metalView.colorPixelFormat = .bgra8Unorm
+        metalView.depthStencilPixelFormat = .invalid
+        metalView.enableSetNeedsDisplay = true
+        
+        metalManager = SwiftyMetalManager(colorPixelFormat: metalView.colorPixelFormat, metalDevice: metalDevice)
+        metalView.delegate = metalManager
 
         super.init(frame: .zero)
         
@@ -32,19 +41,20 @@ public class SwiftyGradientView: UIView {
             metalView.leadingAnchor.constraint(equalTo: leadingAnchor),
             metalView.trailingAnchor.constraint(equalTo: trailingAnchor),
         ])
-
-        metalView.autoResizeDrawable = false
-        metalView.drawableSize = drawableSize
-        metalView.delegate = metalManager
-        metalView.isPaused = true
-        metalView.colorPixelFormat = .bgra8Unorm
-        metalView.depthStencilPixelFormat = .invalid
-        metalView.enableSetNeedsDisplay = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            metalManager.traitCollectionDidChange()
+            metalView.setNeedsDisplay()
+        }
     }
 }
 

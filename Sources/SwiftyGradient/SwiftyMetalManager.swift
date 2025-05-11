@@ -8,6 +8,7 @@ struct SwiftyMetalGrid {
 
 protocol ManagesSwiftyMetal {
     func updateBuffers(width: Int, height: Int, colors: [UIColor])
+    func traitCollectionDidChange()
 }
 
 final class SwiftyMetalManager: NSObject {
@@ -18,6 +19,7 @@ final class SwiftyMetalManager: NSObject {
 
     private var gridBuffer: MTLBuffer?
     private var colorsBuffer: MTLBuffer?
+    private var colors: [UIColor] = []
     
     private let mutex = NSLock()
     private let vertices: [SIMD4<Float>] = [
@@ -113,13 +115,22 @@ extension SwiftyMetalManager: ManagesSwiftyMetal {
             self.gridBuffer = nil
         }
 
-        let colors: [SIMD4<Float>] = colors.compactMap { color in
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
-            return SIMD4<Float>(Float(red), Float(green), Float(blue), Float(alpha))
+        let simdColors: [SIMD4<Float>] = colors.compactMap { prepareSIMD($0) }
+
+        if let colorsBuffer = metalDevice?.makeBuffer(bytes: simdColors, length: MemoryLayout<SIMD4<Float>>.stride * simdColors.count) {
+            self.colorsBuffer = colorsBuffer
+            self.colors = colors
+        } else {
+            assertionFailure("Can't create colorsBuffer")
+            self.colorsBuffer = nil
+            self.colors = []
         }
+    }
+    
+    func traitCollectionDidChange() {
+        let simdColors: [SIMD4<Float>] = colors.compactMap { prepareSIMD($0) }
         
-        if let colorsBuffer = metalDevice?.makeBuffer(bytes: colors, length: MemoryLayout<SIMD4<Float>>.stride * colors.count) {
+        if let colorsBuffer = metalDevice?.makeBuffer(bytes: simdColors, length: MemoryLayout<SIMD4<Float>>.stride * simdColors.count) {
             self.colorsBuffer = colorsBuffer
         } else {
             assertionFailure("Can't create colorsBuffer")
@@ -156,5 +167,20 @@ extension SwiftyMetalManager: MTKViewDelegate {
 
         commandBuffer.present(drawable)
         commandBuffer.commit()
+    }
+}
+
+private extension SwiftyMetalManager {
+    func prepareSIMD(_ color: UIColor) -> SIMD4<Float>? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return nil
+        }
+
+        return SIMD4<Float>(Float(red), Float(green), Float(blue), Float(alpha))
     }
 }
