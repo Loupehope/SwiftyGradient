@@ -19,13 +19,12 @@ class ViewController: UIViewController {
         meshGradientView1.configure(
             MeshGradientView.MeshGradientViewModel(
                 width: 2,
-                height: 5,
+                height: 4,
                 colors: [
-                    UIColor(red: 255.0/255.0, green: 247.0/255.0, blue: 240.0/255.0, alpha: 1.0), UIColor(red: 255.0/255.0, green: 224.0/255.0, blue: 196.0/255.0, alpha: 1.0),
-                    UIColor(red: 254.0/255.0, green: 231.0/255.0, blue: 224.0/255.0, alpha: 1.0), UIColor(red: 255.0/255.0, green: 224.0/255.0, blue: 196.0/255.0, alpha: 1.0),
-                    UIColor(red: 249.0/255.0, green: 192.0/255.0, blue: 187.0/255.0, alpha: 1.0), UIColor(red: 241.0/255.0, green: 157.0/255.0, blue: 196.0/255.0, alpha: 1.0),
-                    UIColor(red: 246.0/255.0, green: 149.0/255.0, blue: 153.0/255.0, alpha: 1.0), UIColor(red: 249.0/255.0, green: 203.0/255.0, blue: 213.0/255.0, alpha: 1.0),
-                    UIColor(red: 249.0/255.0, green: 172.0/255.0, blue: 173.0/255.0, alpha: 1.0), UIColor(red: 254.0/255.0, green: 231.0/255.0, blue: 221.0/255.0, alpha: 1.0)
+                    UIColor(light: UIColor(hex: 0xE2F4FB), dark: UIColor(hex: 0x05212D)), UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x08232F)),
+                    UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x082435)), UIColor(light: UIColor(hex: 0xD7E8FC), dark: UIColor(hex: 0x284361)),
+                    UIColor(light: UIColor(hex: 0x9A99F4), dark: UIColor(hex: 0x072652)), UIColor(light: UIColor(hex: 0xCCDCFE), dark: UIColor(hex: 0x334C70)),
+                    UIColor(light: UIColor(hex: 0xA5A7F5), dark: UIColor(hex: 0x062456)), UIColor(light: UIColor(hex: 0xD3E3FD), dark: UIColor(hex: 0x274463)),
                 ]
             )
         )
@@ -41,4 +40,42 @@ class ViewController: UIViewController {
             meshGradientView1.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
         ])
     }
+}
+
+extension UIColor {
+    convenience init(
+        light lightModeColor: @escaping @autoclosure () -> UIColor,
+        dark darkModeColor: @escaping @autoclosure () -> UIColor
+     ) {
+        self.init { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .light:
+                return lightModeColor()
+            case .dark:
+                return darkModeColor()
+            case .unspecified:
+                return lightModeColor()
+            @unknown default:
+                return lightModeColor()
+            }
+        }
+    }
+}
+
+extension UIColor {
+   convenience init(red: Int, green: Int, blue: Int) {
+       assert(red >= 0 && red <= 255, "Invalid red component")
+       assert(green >= 0 && green <= 255, "Invalid green component")
+       assert(blue >= 0 && blue <= 255, "Invalid blue component")
+
+       self.init(red: CGFloat(red) / 255.0, green: CGFloat(green) / 255.0, blue: CGFloat(blue) / 255.0, alpha: 1.0)
+   }
+
+   convenience init(hex: Int) {
+       self.init(
+           red: (hex >> 16) & 0xFF,
+           green: (hex >> 8) & 0xFF,
+           blue: hex & 0xFF
+       )
+   }
 }
