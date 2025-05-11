@@ -10,13 +10,15 @@ import MetalKit
 
 /// UIView wrapper for MeshGradientLayer to make it easier to use in UIKit
 public class MeshGradientView: UIView {
-
     private let metalView: MTKView
     private let commandQueue: MTLCommandQueue
     private let pipelineState: MTLRenderPipelineState
-    private let vertexBuffer: MTLBuffer
-    private let gridBuffer: MTLBuffer
-    private let colorsBuffer: MTLBuffer
+
+    private var vertexBuffer: MTLBuffer?
+    private var gridBuffer: MTLBuffer?
+    private var colorsBuffer: MTLBuffer?
+    
+    private let mutex = NSLock()
     private let vertices: [SIMD4<Float>] = [
         SIMD4<Float>(-1,  1, 0, 1),
         SIMD4<Float>( 1,  1, 0, 1),
@@ -27,24 +29,15 @@ public class MeshGradientView: UIView {
     // MARK: - Initialization
 
     public init?(
-        width: Int,
-        height: Int,
-        colors: [UIColor],
-        drawableSize: CGSize = CGSize(width: 200, height: 200)
+        metalDevice: (any MTLDevice)? = MTLCreateSystemDefaultDevice(),
+        drawableSize: CGSize = CGSize(width: 50, height: 50)
     ) {
-        guard (width * height) == colors.count else {
-            assertionFailure("Expected to see colors count equal to `width * height`!")
-            return nil
-        }
-
-        guard let metalDevice = MTLCreateSystemDefaultDevice() else {
+        guard let metalDevice = metalDevice ?? MTLCreateSystemDefaultDevice() else {
             assertionFailure("Can't create default device for metal")
             return nil
         }
 
         metalView = MTKView(frame: .zero, device: metalDevice)
-        metalView.autoResizeDrawable = false
-        metalView.drawableSize = drawableSize
 
         guard let commandQueue = metalDevice.makeCommandQueue() else {
             assertionFailure("Can't create command queue from metal device")
@@ -59,6 +52,7 @@ public class MeshGradientView: UIView {
             assertionFailure("Can't load metal library with error: \(error)")
             return nil
         }
+
         let vertexFunction = library.makeFunction(name: "meshGradientVertex")
         let fragmentFunction = library.makeFunction(name: "meshGradientFragment")
 
@@ -74,56 +68,37 @@ public class MeshGradientView: UIView {
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
+
         pipelineDescriptor.colorAttachments[0].pixelFormat = metalView.colorPixelFormat
+        pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
+        pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+        pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
+        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
         pipelineDescriptor.vertexDescriptor = vertexDescriptor
 
         do {
-            self.pipelineState = try metalDevice.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            pipelineState = try metalDevice.makeRenderPipelineState(descriptor: pipelineDescriptor)
         } catch {
             assertionFailure("Failed to create pipeline state: \(error)")
             return nil
         }
 
-        let vertexBuffer = metalDevice.makeBuffer(
-            bytes: vertices,
-            length: MemoryLayout<SIMD4<Float>>.stride * vertices.count
-        )
-        guard let vertexBuffer else {
-            assertionFailure("Can't create vertexBuffer")
-            return nil
-        }
-        self.vertexBuffer = vertexBuffer
-
-        var grid = MeshGradientGrid(width: Int32(width), height: Int32(height))
-        let gridBuffer = metalDevice.makeBuffer(
-            bytes: &grid,
-            length: MemoryLayout<MeshGradientGrid>.stride
-        )
-        guard let gridBuffer else {
-            assertionFailure("Can't create gridBuffer")
-            return nil
-        }
-        self.gridBuffer = gridBuffer
-
-        let colors: [SIMD4<Float>] = colors.compactMap { color in
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
-            return SIMD4<Float>(Float(red), Float(green), Float(blue), Float(alpha))
-        }
-        let colorsBuffer = metalDevice.makeBuffer(
-            bytes: colors,
-            length: MemoryLayout<SIMD4<Float>>.stride * colors.count
-        )
-        guard let colorsBuffer else {
-            assertionFailure("Can't create colorsBuffer")
-            return nil
-        }
-        self.colorsBuffer = colorsBuffer
-
         super.init(frame: .zero)
 
         metalView.delegate = self
+        metalView.isPaused = true
+        metalView.colorPixelFormat = .bgra8Unorm
+        metalView.depthStencilPixelFormat = .invalid
+        metalView.enableSetNeedsDisplay = true
+        metalView.autoResizeDrawable = false
+        metalView.drawableSize = drawableSize
+
         addSubview(metalView)
+        
         metalView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             metalView.topAnchor.constraint(equalTo: topAnchor),
@@ -139,29 +114,95 @@ public class MeshGradientView: UIView {
     }
 }
 
-extension MeshGradientView: MTKViewDelegate {
-    public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+extension MeshGradientView {
+    public struct MeshGradientViewModel {
+        public let  width: Int
+        public let height: Int
+        public let colors: [UIColor]
+        
+        public init(width: Int, height: Int, colors: [UIColor]) {
+            self.width = width
+            self.height = height
+            self.colors = colors
+        }
+    }
+    
+    public func configure(_ viewModel: MeshGradientViewModel) {
+        mutex.lock()
+        defer { mutex.unlock() }
 
-    public func draw(in view: MTKView) {
-        guard
-            let drawable = view.currentDrawable,
-            let descriptor = view.currentRenderPassDescriptor
-        else {
+        guard (viewModel.width * viewModel.height) == viewModel.colors.count else {
+            assertionFailure("Expected to see colors count equal to `width * height`!")
+            return
+        }
+        
+        guard let vertexBuffer = metalView.device?.makeBuffer(
+            bytes: vertices,
+            length: MemoryLayout<SIMD4<Float>>.stride * vertices.count
+        ) else {
+            assertionFailure("Can't create vertexBuffer")
             return
         }
 
-        let commandBuffer = commandQueue.makeCommandBuffer()
-        let encoder = commandBuffer?.makeRenderCommandEncoder(descriptor: descriptor)
+        self.vertexBuffer = vertexBuffer
+        
+        var grid = MeshGradientGrid(width: Int32(viewModel.width), height: Int32(viewModel.height))
+        
+        guard let gridBuffer = metalView.device?.makeBuffer(
+            bytes: &grid,
+            length: MemoryLayout<MeshGradientGrid>.stride
+        ) else {
+            assertionFailure("Can't create gridBuffer")
+            return
+        }
+        self.gridBuffer = gridBuffer
 
-        encoder?.setRenderPipelineState(pipelineState)
-        encoder?.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-        encoder?.setFragmentBuffer(gridBuffer, offset: 0, index: 0)
-        encoder?.setFragmentBuffer(colorsBuffer, offset: 0, index: 1)
-        encoder?.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertices.count)
-        encoder?.endEncoding()
+        let colors: [SIMD4<Float>] = viewModel.colors.compactMap { color in
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
+            return SIMD4<Float>(Float(red), Float(green), Float(blue), Float(alpha))
+        }
+        
+        guard let colorsBuffer = metalView.device?.makeBuffer(
+            bytes: colors,
+            length: MemoryLayout<SIMD4<Float>>.stride * colors.count
+        ) else {
+            assertionFailure("Can't create colorsBuffer")
+            return
+        }
 
-        commandBuffer?.present(drawable)
-        commandBuffer?.commit()
-        metalView.isPaused = true
+        self.colorsBuffer = colorsBuffer
+        
+        metalView.setNeedsDisplay()
+    }
+}
+
+extension MeshGradientView: MTKViewDelegate {
+    public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { }
+
+    public func draw(in view: MTKView) {
+        mutex.lock()
+
+        guard let drawable = view.currentDrawable,
+              let descriptor = view.currentRenderPassDescriptor,
+              let commandBuffer = commandQueue.makeCommandBuffer(),
+              let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
+            mutex.unlock()
+            return
+        }
+
+        commandBuffer.addCompletedHandler { _ in
+            self.mutex.unlock()
+        }
+
+        renderEncoder.setRenderPipelineState(pipelineState)
+        renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
+        renderEncoder.setFragmentBuffer(gridBuffer, offset: 0, index: 0)
+        renderEncoder.setFragmentBuffer(colorsBuffer, offset: 0, index: 1)
+        renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertices.count)
+        renderEncoder.endEncoding()
+
+        commandBuffer.present(drawable)
+        commandBuffer.commit()
     }
 }
