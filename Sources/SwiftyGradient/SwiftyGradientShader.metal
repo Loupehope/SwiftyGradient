@@ -1,22 +1,22 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct MeshGradientVertexIn {
+struct SwiftyGradientVertexIn {
     float4 position [[attribute(0)]];
 };
 
-struct MeshGradientVertexOut {
+struct SwiftyGradientVertexOut {
     float4 position [[position]];
     float2 uv;
 };
 
-struct MeshGradientGrid {
+struct SwiftyGradientGrid {
     int width;
     int height;
 };
 
-vertex MeshGradientVertexOut meshGradientVertex(MeshGradientVertexIn in [[stage_in]]) {
-    MeshGradientVertexOut out;
+vertex SwiftyGradientVertexOut swiftyGradientVertex(SwiftyGradientVertexIn in [[stage_in]]) {
+    SwiftyGradientVertexOut out;
     out.position = in.position;
     out.uv = (in.position.xy * 0.5) + 0.5; // Convert clip space (-1..1) to uv (0..1)
     return out;
@@ -38,8 +38,8 @@ float4 cubicInterpolateColor(float4 c0, float4 c1, float4 c2, float4 c3, float t
                   cubicInterpolate(c0.a, c1.a, c2.a, c3.a, t));
 }
 
-fragment float4 meshGradientFragment(MeshGradientVertexOut in [[stage_in]],
-                                     constant MeshGradientGrid *grid [[buffer(0)]],
+fragment float4 swiftyGradientFragment(SwiftyGradientVertexOut in [[stage_in]],
+                                     constant SwiftyGradientGrid *grid [[buffer(0)]],
                                      constant float4 *colors [[buffer(1)]]) {
     float2 uv = float2(in.uv.x, 1.0 - in.uv.y);
     int gridWidth = grid -> width;
