@@ -13,7 +13,7 @@ let package = Package(
             name: "SwiftyGradient",
             resources: [
                 .process("PrivacyInfo.xcprivacy"),
-                .copy("SwiftyGradientShader.metal")
+                .copy("Shader/MeshGradientShader.metal")
             ]
         ),
     ]

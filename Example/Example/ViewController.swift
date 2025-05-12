@@ -16,18 +16,13 @@ class ViewController: UIViewController {
         view.backgroundColor = .tertiarySystemBackground
 
         let swiftyGradientView = SwiftyGradientView()
-        swiftyGradientView.configure(
-            SwiftyGradientView.SwiftyGradientViewModel(
-                width: 2,
-                height: 4,
-                colors: [
-                    UIColor(light: UIColor(hex: 0xE2F4FB), dark: UIColor(hex: 0x05212D)), UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x08232F)),
-                    UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x082435)), UIColor(light: UIColor(hex: 0xD7E8FC), dark: UIColor(hex: 0x284361)),
-                    UIColor(light: UIColor(hex: 0x9A99F4), dark: UIColor(hex: 0x072652)), UIColor(light: UIColor(hex: 0xCCDCFE), dark: UIColor(hex: 0x334C70)),
-                    UIColor(light: UIColor(hex: 0xA5A7F5), dark: UIColor(hex: 0x062456)), UIColor(light: UIColor(hex: 0xD3E3FD), dark: UIColor(hex: 0x274463))
-                ]
-            )
-        )
+        
+        swiftyGradientView.configure(width: 2, height: 4, colors: [
+            UIColor(light: UIColor(hex: 0xE2F4FB), dark: UIColor(hex: 0x05212D)), UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x08232F)),
+            UIColor(light: UIColor(hex: 0xE2F3FB), dark: UIColor(hex: 0x082435)), UIColor(light: UIColor(hex: 0xD7E8FC), dark: UIColor(hex: 0x284361)),
+            UIColor(light: UIColor(hex: 0x9A99F4), dark: UIColor(hex: 0x072652)), UIColor(light: UIColor(hex: 0xCCDCFE), dark: UIColor(hex: 0x334C70)),
+            UIColor(light: UIColor(hex: 0xA5A7F5), dark: UIColor(hex: 0x062456)), UIColor(light: UIColor(hex: 0xD3E3FD), dark: UIColor(hex: 0x274463))
+        ])
 
         view.addSubview(swiftyGradientView)
 

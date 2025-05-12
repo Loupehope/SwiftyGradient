@@ -1,22 +1,27 @@
 #include <metal_stdlib>
 using namespace metal;
 
-struct SwiftyGradientVertexIn {
+struct MeshGradientVertexIn {
     float4 position [[attribute(0)]];
 };
 
-struct SwiftyGradientVertexOut {
+struct MeshGradientVertexOut {
     float4 position [[position]];
     float2 uv;
 };
 
-struct SwiftyGradientGrid {
+struct MeshGradientGrid {
     int width;
     int height;
 };
 
-vertex SwiftyGradientVertexOut swiftyGradientVertex(SwiftyGradientVertexIn in [[stage_in]]) {
-    SwiftyGradientVertexOut out;
+// How to (and how not to) fix color banding - https://blog.frost.kiwi/GLSL-noise-and-radial-gradient/
+float gradientNoise(float2 uv) {
+    return fract(52.9829189 * fract(dot(uv, float2(0.06711056, 0.00583715))));
+}
+
+vertex MeshGradientVertexOut meshGradientVertex(MeshGradientVertexIn in [[stage_in]]) {
+    MeshGradientVertexOut out;
     out.position = in.position;
     out.uv = (in.position.xy * 0.5) + 0.5; // Convert clip space (-1..1) to uv (0..1)
     return out;
@@ -38,8 +43,8 @@ float4 cubicInterpolateColor(float4 c0, float4 c1, float4 c2, float4 c3, float t
                   cubicInterpolate(c0.a, c1.a, c2.a, c3.a, t));
 }
 
-fragment float4 swiftyGradientFragment(SwiftyGradientVertexOut in [[stage_in]],
-                                     constant SwiftyGradientGrid *grid [[buffer(0)]],
+fragment float4 meshGradientFragment(MeshGradientVertexOut in [[stage_in]],
+                                     constant MeshGradientGrid *grid [[buffer(0)]],
                                      constant float4 *colors [[buffer(1)]]) {
     float2 uv = float2(in.uv.x, 1.0 - in.uv.y);
     int gridWidth = grid -> width;
@@ -77,6 +82,13 @@ fragment float4 swiftyGradientFragment(SwiftyGradientVertexOut in [[stage_in]],
     for (int i = 0; i < 4; i++) {
         colInterp[i] = cubicInterpolateColor(col[0][i], col[1][i], col[2][i], col[3][i], tx);
     }
-
-    return cubicInterpolateColor(colInterp[0], colInterp[1], colInterp[2], colInterp[3], ty);
+    
+    float4 finalColor = cubicInterpolateColor(colInterp[0], colInterp[1], colInterp[2], colInterp[3], ty);
+    
+    // How to (and how not to) fix color banding - https://blog.frost.kiwi/GLSL-noise-and-radial-gradient/
+    float noise = gradientNoise(in.position.xy);
+    finalColor.rgb += (1.0 / 255.0) * noise - (0.5 / 255.0);
+    
+    return finalColor;
 }
+
