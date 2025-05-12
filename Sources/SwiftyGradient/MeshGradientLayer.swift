@@ -79,38 +79,22 @@ public class MeshGradientLayer: CALayer {
         
         guard width > 0, height > 0 else { return }
         
-        // Create a Metal texture that shares memory with a Core Graphics bitmap
-        var texture: MTLTexture?
-        
-        // Create a Core Video pixel buffer
+        // Create a pixel buffer to share between Metal and Core Graphics
         var pixelBuffer: CVPixelBuffer?
         let attrs = [
-            kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue!,
-            kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue!,
-            kCVPixelBufferMetalCompatibilityKey: kCFBooleanTrue!
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true,
+            kCVPixelBufferMetalCompatibilityKey: true
         ] as CFDictionary
         
-        let status = CVPixelBufferCreate(
-            nil,
-            width,
-            height,
-            kCVPixelFormatType_32BGRA,
-            attrs,
-            &pixelBuffer
-        )
+        CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, attrs, &pixelBuffer)
         
-        if status != kCVReturnSuccess {
-            print("Failed to create pixel buffer")
-            return
-        }
-        
-        guard let pixelBuffer = pixelBuffer else { return }
+        guard let pixelBuffer = pixelBuffer,
+              let textureCache = textureCache else { return }
         
         // Create a Metal texture from the pixel buffer
         var cvTexture: CVMetalTexture?
-        guard let textureCache = textureCache else { return }
-        
-        let textureStatus = CVMetalTextureCacheCreateTextureFromImage(
+        CVMetalTextureCacheCreateTextureFromImage(
             nil,
             textureCache,
             pixelBuffer,
@@ -122,58 +106,55 @@ public class MeshGradientLayer: CALayer {
             &cvTexture
         )
         
-        if textureStatus != kCVReturnSuccess {
-            print("Failed to create CV metal texture")
-            return
-        }
-        
         guard let cvTexture = cvTexture,
-              let metalTexture = CVMetalTextureGetTexture(cvTexture) else {
-            return
-        }
+              let texture = CVMetalTextureGetTexture(cvTexture),
+              let commandBuffer = commandQueue?.makeCommandBuffer() else { return }
         
-        texture = metalTexture
-        
-        // Create a render pass descriptor with the texture
+        // Set up render pass descriptor
         let renderPassDescriptor = MTLRenderPassDescriptor()
         renderPassDescriptor.colorAttachments[0].texture = texture
         renderPassDescriptor.colorAttachments[0].loadAction = .clear
         renderPassDescriptor.colorAttachments[0].storeAction = .store
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         
-        // Create a command buffer and render command encoder
-        guard let commandBuffer = commandQueue?.makeCommandBuffer(),
-              let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
+        // Create render command encoder
+        guard let pipelineState, let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
             return
         }
         
-        // Set up rendering
-        renderEncoder.setRenderPipelineState(pipelineState!)
+        // Configure and draw
+        renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
         renderEncoder.setFragmentBuffer(gridBuffer, offset: 0, index: 0)
         renderEncoder.setFragmentBuffer(colorsBuffer, offset: 0, index: 1)
         renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         renderEncoder.endEncoding()
         
-        // Commit the command buffer
+        // Commit and wait
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         
-        // Create a Core Graphics image from the pixel buffer
+        // Draw the pixel buffer directly to Core Graphics
         CVPixelBufferLockBaseAddress(pixelBuffer, [])
         
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        
-        // Convert back to CGImage
-        let ciContext = CIContext(mtlDevice: metalDevice!)
-        guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else {
+        // Create a CGImage from the pixel buffer
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let bitmapContext = CGContext(
+            data: CVPixelBufferGetBaseAddress(pixelBuffer),
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ), let cgImage = bitmapContext.makeImage() else {
             CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
             return
         }
         
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
         
-        // Draw the CG image into the provided context
+        // Draw the CGImage to the context
         ctx.saveGState()
         ctx.translateBy(x: 0, y: bounds.height)
         ctx.scaleBy(x: 1.0, y: -1.0)
