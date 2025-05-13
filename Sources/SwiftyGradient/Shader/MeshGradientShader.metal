@@ -71,10 +71,11 @@ fragment float4 meshGradientFragment(MeshGradientVertexOut in [[stage_in]],
 
     float4 col[4][4];
     for (int m = 0; m < 4; m++) {
+        int xIdx[4] = {ix0, ix1, ix2, ix3};
+
         for (int n = 0; n < 4; n++) {
-            int sampleX = (m == 0) ? ix0 : (m == 1) ? ix1 : (m == 2) ? ix2 : ix3;
-            int sampleY = (n == 0) ? iy0 : (n == 1) ? iy1 : (n == 2) ? iy2 : iy3;
-            col[m][n] = colors[sampleY * gridWidth + sampleX];
+            int yIdx[4] = {iy0, iy1, iy2, iy3};
+            col[m][n] = colors[yIdx[n] * gridWidth + xIdx[m]];
         }
     }
 

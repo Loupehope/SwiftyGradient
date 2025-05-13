@@ -41,6 +41,8 @@ public class MeshGradientViewV2: UIView {
         metalView.presentsWithTransaction = true
         metalView.isPaused = true
         metalView.enableSetNeedsDisplay = true
+        metalView.colorPixelFormat = .bgra8Unorm
+        metalView.depthStencilPixelFormat = .invalid // Avoid unless needed
 
         guard let commandQueue = metalDevice.makeCommandQueue() else {
             assertionFailure("Can't create command queue from metal device")
