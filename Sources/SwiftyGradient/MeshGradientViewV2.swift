@@ -127,10 +127,7 @@ extension MeshGradientViewV2: MTKViewDelegate {
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     public func draw(in view: MTKView) {
-        guard
-            let drawable = view.currentDrawable,
-            let descriptor = view.currentRenderPassDescriptor
-        else {
+        guard let descriptor = view.currentRenderPassDescriptor else {
             return
         }
 
@@ -144,10 +141,10 @@ extension MeshGradientViewV2: MTKViewDelegate {
         encoder?.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertices.count)
         encoder?.endEncoding()
 
-        commandBuffer?.present(drawable)
         commandBuffer?.commit()
-
-        drawable.present()
+        commandBuffer?.waitUntilScheduled()
+        
+        view.currentDrawable?.present()
     }
 }
 

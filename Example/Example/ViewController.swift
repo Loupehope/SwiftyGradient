@@ -9,7 +9,7 @@ import UIKit
 import SwiftyGradient
 
 class ViewController: UIViewController {
-    let swiftyGradientView = SwiftyGradientView()
+    let swiftyGradientView = MeshGradientViewV2()!
 
     lazy var displaylink = CADisplayLink(target: self, selector: #selector(test(_:)))
     let colors = [
