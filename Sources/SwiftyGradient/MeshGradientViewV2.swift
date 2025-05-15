@@ -28,7 +28,7 @@ public class MeshGradientViewV2: UIView {
     // MARK: - Initialization
 
     public init?(
-        drawableSize: CGSize = CGSize(width: 10, height: 10)
+        drawableSize: CGSize = CGSize(width: 256, height: 256)
     ) {
         guard let metalDevice = MTLCreateSystemDefaultDevice() else {
             assertionFailure("Can't create default device for metal")
