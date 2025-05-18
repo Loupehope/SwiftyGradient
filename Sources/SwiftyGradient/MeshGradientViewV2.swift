@@ -129,24 +129,26 @@ extension MeshGradientViewV2: MTKViewDelegate {
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     public func draw(in view: MTKView) {
-        guard let descriptor = view.currentRenderPassDescriptor else {
-            return
+        autoreleasepool {
+            guard let descriptor = view.currentRenderPassDescriptor else {
+                return
+            }
+            
+            let commandBuffer = commandQueue.makeCommandBuffer()
+            let encoder = commandBuffer?.makeRenderCommandEncoder(descriptor: descriptor)
+            
+            encoder?.setRenderPipelineState(pipelineState)
+            encoder?.setVertexBytes(vertices, length: MemoryLayout<SIMD4<Float>>.stride * vertices.count, index: 0)
+            encoder?.setFragmentBytes(&grid, length: MemoryLayout<MeshGradientGrid>.stride, index: 0)
+            encoder?.setFragmentBytes(metalColors, length: MemoryLayout<SIMD4<Float>>.stride * colors.count, index: 1)
+            encoder?.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertices.count)
+            encoder?.endEncoding()
+            
+            commandBuffer?.commit()
+            commandBuffer?.waitUntilScheduled()
+            
+            view.currentDrawable?.present()
         }
-
-        let commandBuffer = commandQueue.makeCommandBuffer()
-        let encoder = commandBuffer?.makeRenderCommandEncoder(descriptor: descriptor)
-
-        encoder?.setRenderPipelineState(pipelineState)
-        encoder?.setVertexBytes(vertices, length: MemoryLayout<SIMD4<Float>>.stride * vertices.count, index: 0)
-        encoder?.setFragmentBytes(&grid, length: MemoryLayout<MeshGradientGrid>.stride, index: 0)
-        encoder?.setFragmentBytes(metalColors, length: MemoryLayout<SIMD4<Float>>.stride * colors.count, index: 1)
-        encoder?.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: vertices.count)
-        encoder?.endEncoding()
-
-        commandBuffer?.commit()
-        commandBuffer?.waitUntilScheduled()
-        
-        view.currentDrawable?.present()
     }
 }
 

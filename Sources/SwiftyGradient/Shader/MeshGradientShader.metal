@@ -15,11 +15,6 @@ struct MeshGradientGrid {
     int height;
 };
 
-// How to (and how not to) fix color banding - https://blog.frost.kiwi/GLSL-noise-and-radial-gradient/
-float gradientNoise(float2 uv) {
-    return fract(52.9829189 * fract(dot(uv, float2(0.06711056, 0.00583715))));
-}
-
 vertex MeshGradientVertexOut meshGradientVertex(MeshGradientVertexIn in [[stage_in]]) {
     MeshGradientVertexOut out;
     out.position = in.position;
@@ -27,13 +22,18 @@ vertex MeshGradientVertexOut meshGradientVertex(MeshGradientVertexIn in [[stage_
     return out;
 }
 
+// t is a value that goes from 0 to 1 to interpolate in a C1 continuous way across uniformly sampled data points.
+// when t is 0, this will return B.  When t is 1, this will return C.  Inbetween values will return an interpolation
+// between B and C.  A and B are used to calculate slopes at the edges.
+// https://www.paulinternet.nl/?page=bicubic
+// https://blog.demofox.org/2015/08/08/cubic-hermite-interpolation/
 float cubicInterpolate(float p0, float p1, float p2, float p3, float t) {
-    float a0 = p3 - p2 - p0 + p1;
-    float a1 = p0 - p1 - a0;
-    float a2 = p2 - p0;
-    float a3 = p1;
-    float t2 = t * t;
-    return a0 * t * t2 + a1 * t2 + a2 * t + a3;
+    float a = -p0 / 2.0f + (3.0f * p1) / 2.0f - (3.0f * p2) / 2.0f + p3 / 2.0f;
+    float b = p0 - (5.0f * p1) / 2.0f + 2.0f * p2 - p3 / 2.0f;
+    float c = -p0 / 2.0f + p2 / 2.0f;
+    float d = p1;
+    
+    return a * t * t * t + b * t * t + c * t + d;
 }
 
 float4 cubicInterpolateColor(float4 c0, float4 c1, float4 c2, float4 c3, float t) {
@@ -43,6 +43,7 @@ float4 cubicInterpolateColor(float4 c0, float4 c1, float4 c2, float4 c3, float t
                   cubicInterpolate(c0.a, c1.a, c2.a, c3.a, t));
 }
 
+// https://github.com/imxieyi/waifu2x-ios/blob/5676e6258e580e5940628811123f8402950013e3/waifu2x/bicubic.metal
 fragment float4 meshGradientFragment(MeshGradientVertexOut in [[stage_in]],
                                      constant MeshGradientGrid *grid [[buffer(0)]],
                                      constant float4 *colors [[buffer(1)]]) {
@@ -59,35 +60,29 @@ fragment float4 meshGradientFragment(MeshGradientVertexOut in [[stage_in]],
     float tx = gx - ix; // fractional part in x
     float ty = gy - iy; // fractional part in y
 
-    int ix0 = max(ix - 1, 0);
-    int ix1 = ix;
-    int ix2 = min(ix + 1, gridWidth - 1);
-    int ix3 = min(ix + 2, gridWidth - 1);
+    int xIdx[4] = {clamp(ix - 1, 0, gridWidth - 1),
+                   clamp(ix,     0, gridWidth - 1),
+                   clamp(ix + 1, 0, gridWidth - 1),
+                   clamp(ix + 2, 0, gridWidth - 1)};
 
-    int iy0 = max(iy - 1, 0);
-    int iy1 = iy;
-    int iy2 = min(iy + 1, gridHeight - 1);
-    int iy3 = min(iy + 2, gridHeight - 1);
-
-    float4 col[4][4];
-    for (int m = 0; m < 4; m++) {
-        int xIdx[4] = {ix0, ix1, ix2, ix3};
-
-        for (int n = 0; n < 4; n++) {
-            int yIdx[4] = {iy0, iy1, iy2, iy3};
-            col[m][n] = colors[yIdx[n] * gridWidth + xIdx[m]];
-        }
-    }
+    int yIdx[4] = {clamp(iy - 1, 0, gridHeight - 1),
+                   clamp(iy,     0, gridHeight - 1),
+                   clamp(iy + 1, 0, gridHeight - 1),
+                   clamp(iy + 2, 0, gridHeight - 1)};
 
     float4 colInterp[4];
-    for (int i = 0; i < 4; i++) {
-        colInterp[i] = cubicInterpolateColor(col[0][i], col[1][i], col[2][i], col[3][i], tx);
+    for (int j = 0; j < 4; j++) {
+        float4 c0 = colors[yIdx[j] * gridWidth + xIdx[0]];
+        float4 c1 = colors[yIdx[j] * gridWidth + xIdx[1]];
+        float4 c2 = colors[yIdx[j] * gridWidth + xIdx[2]];
+        float4 c3 = colors[yIdx[j] * gridWidth + xIdx[3]];
+        colInterp[j] = clamp(cubicInterpolateColor(c0, c1, c2, c3, tx), 0.0f, 255.0f);
     }
-    
+
     float4 finalColor = cubicInterpolateColor(colInterp[0], colInterp[1], colInterp[2], colInterp[3], ty);
-    
+
     // How to (and how not to) fix color banding - https://blog.frost.kiwi/GLSL-noise-and-radial-gradient/
-    float noise = gradientNoise(in.position.xy);
+    float noise = fract(52.9829189 * fract(dot(in.position.xy, float2(0.06711056, 0.00583715))));
     finalColor.rgb += (1.0 / 255.0) * noise - (0.5 / 255.0);
     
     return finalColor;
