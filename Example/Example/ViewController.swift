@@ -8,6 +8,7 @@
 import UIKit
 import SwiftyGradient
 
+@available(iOS 26, *)
 class ViewController: UIViewController {
     let swiftyGradientView = MeshGradientViewV2()!
 
@@ -58,7 +59,7 @@ class ViewController: UIViewController {
         
         swiftyGradientView.configure(width: 2, height: 4, colors: colors)
         
-        displaylink.preferredFrameRateRange = CAFrameRateRange(minimum:15, maximum:24, preferred:0)
+//        displaylink.preferredFrameRateRange = CAFrameRateRange(minimum:15, maximum:24, preferred:0)
         displaylink.add(to: .main, forMode: .common)
     }
     
